@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional
 
 import bcrypt
-from pydantic import BaseModel, EmailStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlmodel import Session, select
 
 from apps.models import engine, User
@@ -27,18 +27,10 @@ class RefreshTokenRequest(BaseModel):
 
 
 class LoginForm(BaseModel):
+    """Faqat shakl/validatsiya. Login logikasi (userni topish, parolni
+    tekshirish) view funksiyasida (apps/views/auth.py) amalga oshiriladi."""
     username: str
     password: str
-
-    @model_validator(mode='after')
-    def validate__entire_model(self):
-        with Session(engine) as session:
-            user = session.exec(select(User).where(User.username == self.username)).first()
-        if not user:
-            raise ValueError("User topilmadi !")
-        if not bcrypt.checkpw(self.password.encode(), user.password.encode()):
-            raise ValueError("Password xato !")
-        return self
 
 
 class VerifyOTPForm(BaseModel):

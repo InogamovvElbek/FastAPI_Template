@@ -1,19 +1,23 @@
 import os
 import secrets
 import smtplib
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from email.message import EmailMessage
 from typing import Optional
 import jwt
 import redis
 from fastapi import HTTPException
 from starlette import status
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY aniqlanmagan! .env faylida SECRET_KEY ni belgilang.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
-from dotenv import load_dotenv
-load_dotenv()
 
 SMTP_HOST = (os.getenv("EMAIL_HOST") or "smtp.gmail.com").strip()
 SMTP_PORT = int(os.getenv("EMAIL_PORT") or 587)
@@ -63,9 +67,9 @@ def send_otp_email(email: str, code: str) -> None:
 def create_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

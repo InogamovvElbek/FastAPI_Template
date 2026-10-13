@@ -1,4 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+import bcrypt
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from sqlmodel import select
 
 from apps.forms import LoginForm, RefreshTokenRequest, RegisterForm, Token, VerifyOTPForm
 from apps.models import SessionDep, User
@@ -35,13 +37,22 @@ async def verify_otp(form: VerifyOTPForm):
 
 
 @router.post("/user/login", response_model=Token)
-async def login(login_form: LoginForm):
-    access, refresh = create_access_and_refresh_tokens(login_form.username)
+async def login(login_form: LoginForm, session: SessionDep):
+    user = session.exec(select(User).where(User.username == login_form.username)).first()
+    if not user or not bcrypt.checkpw(login_form.password.encode(), user.password.encode()):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Username yoki parol xato")
+
+    access, refresh = create_access_and_refresh_tokens(user.username)
     return Token(access_token=access, token_type="bearer", refresh_token=refresh)
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_access_token(request: RefreshTokenRequest):
+async def refresh_access_token(request: RefreshTokenRequest, session: SessionDep):
     username = verify_token(request.refresh_token, token_type="refresh")
-    access_token, refresh_token = create_access_and_refresh_tokens(username)
+
+    user = session.exec(select(User).where(User.username == username)).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Foydalanuvchi topilmadi")
+
+    access_token, refresh_token = create_access_and_refresh_tokens(user.username)
     return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
